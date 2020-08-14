@@ -1,0 +1,45 @@
+{
+  "table": "foo",
+  "primary_keys": [
+    "id"
+  ],
+  "unique_keys": [],
+  "fields": {
+    "id": {
+      "type": "int",
+      "nullable_rate": 0,
+      "int": {
+        "min": -9223372036854775808,
+        "max": 9223372036854775807
+      }
+    },
+    "bigint": {
+      "type": "int",
+      "nullable_rate": 20,
+      "int": {
+        "min": 0,
+        "max": 18446744073709551615
+      }
+    },
+    "words": {
+      "type": "string",
+      "nullable_rate": 30,
+      "string": {
+        "type": "word",
+        "word": {
+          "num": 3
+        }
+      }
+    },
+    "text": {
+      "type": "string",
+      "nullable_rate": 50,
+      "string": {
+        "type": "paragraph",
+        "paragraph": {
+          "num": 3
+        }
+      }
+    }
+  }
+}
