@@ -16,7 +16,7 @@ type Metadata struct {
 	NumRows uint  `json:"num_rows"`
 	Rows    []Row `json:"rows"`
 
-	file            *os.File        `json:"-"`
+	path            string          `json:"-"`
 	primaryKeys     []string        `json:"-"`
 	uniqueKeys      [][]string      `json:"-"`
 	primaryKeyIndex map[string]uint `json:"-"`
@@ -28,7 +28,7 @@ func Open(s *schema.Schema, path string) (*Metadata, error) {
 		NumRows: 0,
 		Rows:    []Row{},
 
-		file: nil,
+		path: path,
 
 		primaryKeys:     s.PrimaryKeys,
 		uniqueKeys:      s.UniqueKeys,
@@ -38,10 +38,8 @@ func Open(s *schema.Schema, path string) (*Metadata, error) {
 
 	f, err := os.Open(path)
 	if err == nil {
-		md.file = f
 		if err := json.NewDecoder(f).Decode(md); err != nil {
 			f.Close()
-			md.file = nil
 			return nil, err
 		}
 	} else {
@@ -49,7 +47,6 @@ func Open(s *schema.Schema, path string) (*Metadata, error) {
 		if err != nil {
 			return nil, err
 		}
-		md.file = f
 	}
 
 	for idx, row := range md.Rows {
@@ -228,11 +225,19 @@ func (md *Metadata) DeleteRow(idx uint) error {
 }
 
 func (md *Metadata) Close() error {
+	var rows []Row
+	for _, row := range md.Rows {
+		if row != nil {
+			rows = append(rows, row)
+		}
+	}
+	md.Rows = rows
+	md.NumRows = uint(len(md.Rows))
 
-	err := json.NewEncoder(md.file).Encode(md)
+	f, err := os.Create(md.path)
 	if err != nil {
 		return err
 	}
-
-	return md.file.Close()
+	defer f.Close()
+	return json.NewEncoder(f).Encode(md)
 }

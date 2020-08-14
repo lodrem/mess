@@ -2,9 +2,10 @@ package generator
 
 import (
 	"fmt"
-	"github.com/luncj/mess/dataset"
 	"log"
 	"strings"
+
+	"github.com/luncj/mess/dataset"
 
 	"github.com/luncj/mess/schema"
 )
@@ -181,5 +182,26 @@ func (m *MySQLGenerator) updateSQL(md *Metadata, s *schema.Schema) (string, erro
 }
 
 func (m *MySQLGenerator) deleteSQL(md *Metadata, s *schema.Schema) (string, error) {
-	return "", nil
+	idx, row, ok := md.PickRow()
+	if !ok {
+		return "", fmt.Errorf("no more data to delete")
+	}
+	err := md.DeleteRow(idx)
+	if err != nil {
+		return "", err
+	}
+
+	sql := strings.Builder{}
+	{
+		sql.WriteString(fmt.Sprintf("DELETE FROM %s WHERE", escapeKey(s.Table)))
+		whereClauses := make([]string, len(s.PrimaryKeys))
+		for i, k := range s.PrimaryKeys {
+			v := row[k]
+			whereClauses[i] = fmt.Sprintf("%s = %s", escapeKey(k), m.normalize(v))
+		}
+		sql.WriteString(strings.Join(whereClauses, ", "))
+		sql.WriteString(";")
+	}
+
+	return sql.String(), nil
 }

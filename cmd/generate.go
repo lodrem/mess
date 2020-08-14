@@ -45,7 +45,11 @@ func generateCmd() *cobra.Command {
 			if err != nil {
 				log.Fatalf("failed to read metadata: %s", err)
 			}
-			defer md.Close()
+			defer func() {
+				if err := md.Close(); err != nil {
+					log.Fatalf("failed to flush metadata: %s", err)
+				}
+			}()
 
 			g := generator.NewMySQLGenerator()
 			sqls, err := g.Generate(md, s, d, numRows)
@@ -57,8 +61,8 @@ func generateCmd() *cobra.Command {
 	}
 
 	f := cmd.PersistentFlags()
-	f.StringVar(&dml, "dml", "update", "DML")
-	f.StringVar(&schemaPath, "schema-path", "./examples/insert/schema.json", "Path of schema definition")
+	f.StringVar(&dml, "dml", "insert", "DML")
+	f.StringVar(&schemaPath, "schema-path", "./schema.json", "Path of schema definition")
 	f.StringVar(&metadataPath, "metadata-path", "./metadata.json", "Path of metadata for increment generating")
 	f.StringVar(&outputPath, "output-path", "output.sql", "Path of generated SQL")
 	f.UintVar(&numRows, "num-rows", 1_000, "Number of rows")
