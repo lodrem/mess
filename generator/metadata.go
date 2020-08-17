@@ -80,8 +80,7 @@ func (md *Metadata) containsPK(pk string) bool {
 
 func (md *Metadata) containsUKs(uks []string) bool {
 	for _, uk := range uks {
-		_, found := md.uniqueKeyIndex[uk]
-		if !found {
+		if md.containsUK(uk) {
 			return true
 		}
 	}
@@ -104,7 +103,7 @@ func (md *Metadata) generatePK(row Row) string {
 
 func (md *Metadata) generateUKs(row map[string]interface{}) []string {
 
-	keys := make([]string, len(md.uniqueKeys))
+	keys := make([]string, 0, len(md.uniqueKeys))
 
 	for i := range md.uniqueKeys {
 		uks := make([]string, len(md.uniqueKeys[i]))

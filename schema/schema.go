@@ -18,6 +18,9 @@ const (
 	FieldTypeJSON     FieldType = "json"
 	FieldTypeDate     FieldType = "date"
 	FieldTypeDateTime FieldType = "datetime"
+	FieldTypeTime     FieldType = "time"
+	FieldTypeEnum     FieldType = "enum"
+	FieldTypeSet      FieldType = "set"
 )
 
 type StringType string
@@ -39,8 +42,8 @@ type Field struct {
 	} `json:"int"`
 
 	Float struct {
-		Min float64 `json:"min"`
-		Max float64 `json:"max"`
+		Precision int `json:"precision"`
+		Scale     int `json:"scale"`
 	} `json:"float"`
 
 	String struct {
@@ -60,6 +63,10 @@ type Field struct {
 		} `json:"word"`
 	} `json:"string"`
 
+	JSON struct {
+		Num int `json:"num"`
+	} `json:"json"`
+
 	Date struct {
 	} `json:"date"`
 
@@ -68,6 +75,14 @@ type Field struct {
 
 	DateTime struct {
 	} `json:"datetime"`
+
+	Enum struct {
+		Options []string `json:"options"`
+	} `json:"enum"`
+
+	Set struct {
+		Options []string `json:"options"`
+	} `json:"set"`
 }
 
 type Schema struct {
@@ -145,6 +160,16 @@ func (f Field) Generate() interface{} {
 	switch f.Type {
 	case FieldTypeInt:
 		return dataset.IntRange(f.Int.Min, f.Int.Max)
+	case FieldTypeFloat:
+		return dataset.Float(f.Float.Precision, f.Float.Scale)
+	case FieldTypeDate, FieldTypeDateTime, FieldTypeTime:
+		return dataset.DateTime()
+	case FieldTypeJSON:
+		return dataset.JSON()
+	case FieldTypeEnum:
+		return dataset.Enum(f.Enum.Options)
+	case FieldTypeSet:
+		return dataset.Set(f.Set.Options)
 	case FieldTypeString:
 		s := f.String
 		switch s.Type {

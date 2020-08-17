@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/luncj/mess/dataset"
 
@@ -66,10 +67,22 @@ func (m *MySQLGenerator) generate(md *Metadata, s *schema.Schema, dml schema.DML
 	}
 }
 
-func (m *MySQLGenerator) normalize(value interface{}) string {
+func (m *MySQLGenerator) normalize(t schema.FieldType, value interface{}) string {
 	switch v := value.(type) {
 	case string:
 		return fmt.Sprintf("'%s'", v)
+	case time.Time:
+		switch t {
+		case schema.FieldTypeDate:
+			return fmt.Sprintf("'%s'", v.Format("2006-01-02"))
+		case schema.FieldTypeDateTime:
+			return fmt.Sprintf("'%s'", v.Format("2006-01-02 15:04:05"))
+		case schema.FieldTypeTime:
+			return fmt.Sprintf("'%s'", v.Format("15:04:05"))
+		default:
+			log.Fatalf("unsupported datetime type: %s", t)
+			return ""
+		}
 	case nil:
 		return "NULL"
 	default:
@@ -94,7 +107,7 @@ func (m *MySQLGenerator) insertSQL(md *Metadata, s *schema.Schema) (string, erro
 	values := make([]string, len(s.Fields))
 	for {
 		for i, k := range keys {
-			values[i] = m.normalize(s.Fields[k].Generate())
+			values[i] = m.normalize(s.Fields[k].Type, s.Fields[k].Generate())
 		}
 		row := m.toRow(keys, values)
 		if err := md.InsertRow(row); err == nil {
@@ -148,7 +161,7 @@ func (m *MySQLGenerator) updateSQL(md *Metadata, s *schema.Schema) (string, erro
 	values := make([]string, len(s.Fields))
 	for {
 		for i, k := range keys {
-			values[i] = m.normalize(s.Fields[k].Generate())
+			values[i] = m.normalize(s.Fields[k].Type, s.Fields[k].Generate())
 		}
 		row := m.toRow(keys, values)
 		if err := md.UpdateRow(idx, row); err == nil {
@@ -197,7 +210,7 @@ func (m *MySQLGenerator) deleteSQL(md *Metadata, s *schema.Schema) (string, erro
 		whereClauses := make([]string, len(s.PrimaryKeys))
 		for i, k := range s.PrimaryKeys {
 			v := row[k]
-			whereClauses[i] = fmt.Sprintf("%s = %s", escapeKey(k), m.normalize(v))
+			whereClauses[i] = fmt.Sprintf("%s = %s", escapeKey(k), m.normalize(s.Fields[k].Type, v))
 		}
 		sql.WriteString(strings.Join(whereClauses, ", "))
 		sql.WriteString(";")
