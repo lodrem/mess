@@ -108,8 +108,18 @@ func (md *Metadata) generateUKs(row map[string]interface{}) []string {
 	for i := range md.uniqueKeys {
 		uks := make([]string, len(md.uniqueKeys[i]))
 		copy(uks, md.uniqueKeys[i])
+
+		ignore := false
 		for j := range uks {
-			uks[j] = fmt.Sprintf("%s=%v", uks[j], row[uks[j]])
+			v, found := row[uks[j]]
+			if !found {
+				ignore = true
+				break
+			}
+			uks[j] = fmt.Sprintf("%s=%v", uks[j], v)
+		}
+		if ignore {
+			continue
 		}
 		keys = append(keys, strings.Join(uks, "&"))
 	}

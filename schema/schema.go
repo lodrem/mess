@@ -91,7 +91,8 @@ type Schema struct {
 	UniqueKeys  [][]string       `json:"unique_keys"`
 	Fields      map[string]Field `json:"fields"`
 
-	keys []string
+	keys        []string
+	primaryKeys map[string]bool
 }
 
 func FromFile(path string) (*Schema, error) {
@@ -117,6 +118,10 @@ func FromFile(path string) (*Schema, error) {
 	}
 
 	s.keys = KeysFromFields(s.Fields)
+	s.primaryKeys = make(map[string]bool, len(s.PrimaryKeys))
+	for _, k := range s.PrimaryKeys {
+		s.primaryKeys[k] = true
+	}
 
 	return &s, nil
 }
@@ -149,6 +154,11 @@ func KeysFromFields(fields map[string]Field) []string {
 	sort.Strings(keys)
 
 	return keys
+}
+
+func (s *Schema) IsPrimaryKey(key string) bool {
+	_, found := s.primaryKeys[key]
+	return found
 }
 
 func (f Field) Generate() interface{} {

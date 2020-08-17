@@ -130,64 +130,61 @@ func (m *MySQLGenerator) insertSQL(md *Metadata, s *schema.Schema) (string, erro
 }
 
 func (m *MySQLGenerator) updateSQL(md *Metadata, s *schema.Schema) (string, error) {
-	pks := make(map[string]interface{})
-	for _, pk := range s.PrimaryKeys {
-		pks[pk] = true
-	}
 
-	keys := make([]string, len(s.PrimaryKeys))
-	copy(keys, s.PrimaryKeys)
-	for len(keys) == len(pks) {
+	newRow :=  make(Row)
+
+	for len(newRow) == 0 {
 		for _, k := range s.Keys() {
-			if _, found := pks[k]; found {
+			if s.IsPrimaryKey(k) {
 				continue
 			}
 			const rate = 50 // FIXME: import from schema
 			if dataset.Skip(rate) {
 				continue
 			}
-			keys = append(keys, k)
+			newRow[k] = nil
 		}
 	}
 
 	idx, oldRow, ok := md.PickRow()
 	if !ok {
 		return "", fmt.Errorf("no more data to update")
-	} else {
-		for pk := range pks {
-			pks[pk] = oldRow[pk]
-		}
 	}
-	values := make([]string, len(s.Fields))
+
 	for {
-		for i, k := range keys {
-			values[i] = m.normalize(s.Fields[k].Type, s.Fields[k].Generate())
+		for k := range newRow {
+			newRow[k] = m.normalize(s.Fields[k].Type, s.Fields[k].Generate())
 		}
-		row := m.toRow(keys, values)
-		if err := md.UpdateRow(idx, row); err == nil {
+
+		for _, k := range s.PrimaryKeys {
+			newRow[k] = oldRow[k]
+		}
+
+		if err := md.UpdateRow(idx, newRow); err == nil {
 			break
 		} else {
-			log.Printf("MySQL generate update SQL: %s", err)
+			log.Printf("MySQL generate update SQL: %s. It will retry.", err)
 		}
 	}
 
 	sql := strings.Builder{}
 	{
 		sql.WriteString(fmt.Sprintf("UPDATE %s SET ", escapeKey(s.Table)))
-		setFields := make([]string, 0, len(keys)-len(pks))
-		for i := range keys {
-			if _, found := pks[keys[i]]; found {
+		setFields := make([]string, 0, len(newRow)-len(s.PrimaryKeys))
+		for k, v := range newRow {
+			if s.IsPrimaryKey(k) {
 				continue
 			}
-			setFields = append(setFields, fmt.Sprintf("%s = %s", escapeKey(keys[i]), values[i]))
+			setFields = append(setFields, fmt.Sprintf("%s = %s", escapeKey(k), v))
 		}
 		sql.WriteString(strings.Join(setFields, ","))
 		sql.WriteString(" WHERE ")
-		whereClauses := make([]string, 0, len(pks))
-		for k, v := range pks {
+		whereClauses := make([]string, 0, len(s.PrimaryKeys))
+		for _, k := range s.PrimaryKeys {
+			v := newRow[k]
 			whereClauses = append(whereClauses, fmt.Sprintf("%s = %s", escapeKey(k), v))
 		}
-		sql.WriteString(strings.Join(whereClauses, ", "))
+		sql.WriteString(strings.Join(whereClauses, " AND "))
 		sql.WriteString(";")
 	}
 
@@ -212,7 +209,7 @@ func (m *MySQLGenerator) deleteSQL(md *Metadata, s *schema.Schema) (string, erro
 			v := row[k]
 			whereClauses[i] = fmt.Sprintf("%s = %s", escapeKey(k), m.normalize(s.Fields[k].Type, v))
 		}
-		sql.WriteString(strings.Join(whereClauses, ", "))
+		sql.WriteString(strings.Join(whereClauses, " AND "))
 		sql.WriteString(";")
 	}
 
